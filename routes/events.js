@@ -3,12 +3,31 @@ const router = express.Router();
 const Event = require('../models/Event');
 const { auth, adminOnly, userOrAdmin } = require('../middleware/auth');
 
+// Get upcoming events (public)
+router.get('/upcoming', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const upcomingEvents = await Event.find({
+      date: { $gte: today }
+    }).sort({ date: 1 });
+    
+    // Simply return what we found, even if empty
+    res.json(upcomingEvents);
+  } catch (err) {
+    console.error('Error fetching upcoming events:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get all events (public)
 router.get('/', async (req, res) => {
   try {
     const events = await Event.find();
     res.json(events);
   } catch (err) {
+    console.error('Error fetching all events:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -20,6 +39,7 @@ router.get('/:id', async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Event not found' });
     res.json(event);
   } catch (err) {
+    console.error('Error fetching event by ID:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -31,6 +51,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const newEvent = await event.save();
     res.status(201).json(newEvent);
   } catch (err) {
+    console.error('Error creating event:', err);
     res.status(400).json({ message: err.message });
   }
 });
@@ -46,6 +67,7 @@ router.patch('/:id', auth, adminOnly, async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Event not found' });
     res.json(event);
   } catch (err) {
+    console.error('Error updating event:', err);
     res.status(400).json({ message: err.message });
   }
 });
@@ -57,6 +79,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Event not found' });
     res.json({ message: 'Event deleted' });
   } catch (err) {
+    console.error('Error deleting event:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -77,6 +100,7 @@ router.post('/:id/register/:devoteeId', auth, userOrAdmin, async (req, res) => {
     
     res.status(200).json(event);
   } catch (err) {
+    console.error('Error registering for event:', err);
     res.status(400).json({ message: err.message });
   }
 });
@@ -94,6 +118,7 @@ router.delete('/:id/register/:devoteeId', auth, userOrAdmin, async (req, res) =>
     await event.save();
     res.status(200).json(event);
   } catch (err) {
+    console.error('Error unregistering from event:', err);
     res.status(400).json({ message: err.message });
   }
 });

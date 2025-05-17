@@ -10,7 +10,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'temple_management_secret_key';
 // Register a new user
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, name, phone, address } = req.body;
+    const { 
+      username, 
+      email, 
+      password, 
+      name, 
+      phone, 
+      address, 
+      city, 
+      state, 
+      country 
+    } = req.body;
     
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -22,10 +32,13 @@ router.post('/register', async (req, res) => {
     
     // Create a devotee record for the user
     const devotee = new Devotee({
-      name,
+      name: name || 'Temple Devotee',
       email,
       phone,
       address,
+      city,
+      state,
+      country,
       membershipType: 'regular'
     });
     
