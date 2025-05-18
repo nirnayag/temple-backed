@@ -7,81 +7,26 @@ const Devotee = require('../models/Devotee');
 // Environment variable for JWT secret (fallback to a default for development)
 const JWT_SECRET = process.env.JWT_SECRET || 'temple_management_secret_key';
 
-// Register a new user
-router.post('/register', async (req, res) => {
-  try {
-    const { 
-      username, 
-      email, 
-      password, 
-      name, 
-      phone, 
-      address, 
-      city, 
-      state, 
-      country 
-    } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-    if (existingUser) {
-      return res.status(400).json({ 
-        message: 'User already exists with this email or username' 
-      });
-    }
-    
-    // Create a devotee record for the user
-    const devotee = new Devotee({
-      name: name || 'Temple Devotee',
-      email,
-      phone,
-      address,
-      city,
-      state,
-      country,
-      membershipType: 'regular'
-    });
-    
-    const savedDevotee = await devotee.save();
-    
-    // Create user with reference to devotee
-    const user = new User({
-      username,
-      email,
-      password,
-      devoteeId: savedDevotee._id,
-      role: 'user' // Default role is user
-    });
-    
-    await user.save();
-    
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role
-      }
-    });
-  } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ message: err.message });
-  }
+// Redirect to OTP-based authentication
+router.post('/register', (req, res) => {
+  return res.status(308).json({
+    message: 'Traditional registration is no longer supported. Please use mobile OTP authentication.',
+    redirectTo: '/api/otp-auth/request-otp'
+  });
 });
 
-// Admin registration (separate endpoint with admin role)
+// Redirect to OTP-based authentication
+router.post('/login', (req, res) => {
+  return res.status(308).json({
+    message: 'Traditional login is no longer supported. Please use mobile OTP authentication.',
+    redirectTo: '/api/otp-auth/request-otp'
+  });
+});
+
+// Admin registration with OTP verification
 router.post('/register/admin', async (req, res) => {
   try {
-    const { username, email, password, name, phone, address } = req.body;
+    const { mobileNumber, name, email, username, address } = req.body;
     
     // Check if admin secret key is provided and correct
     const adminSecretKey = req.headers['admin-secret-key'];
@@ -90,10 +35,10 @@ router.post('/register/admin', async (req, res) => {
     }
     
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await User.findOne({ mobileNumber });
     if (existingUser) {
       return res.status(400).json({ 
-        message: 'User already exists with this email or username' 
+        message: 'User already exists with this mobile number' 
       });
     }
     
@@ -101,7 +46,7 @@ router.post('/register/admin', async (req, res) => {
     const devotee = new Devotee({
       name,
       email,
-      phone,
+      mobileNumber,
       address,
       membershipType: 'vip' // Admins are VIPs by default
     });
@@ -112,7 +57,7 @@ router.post('/register/admin', async (req, res) => {
     const user = new User({
       username,
       email,
-      password,
+      mobileNumber,
       devoteeId: savedDevotee._id,
       role: 'admin'
     });
@@ -132,57 +77,13 @@ router.post('/register/admin', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
+        mobileNumber: user.mobileNumber,
         email: user.email,
         role: user.role
       }
     });
   } catch (err) {
     console.error('Admin registration error:', err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Login route
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    // Find user by username
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({ message: 'Account is disabled. Please contact admin.' });
-    }
-    
-    // Validate password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role
-      }
-    });
-  } catch (err) {
-    console.error('Login error:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -200,7 +101,7 @@ router.get('/profile', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     
     // Find user
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await User.findById(decoded.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -212,6 +113,7 @@ router.get('/profile', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
+        mobileNumber: user.mobileNumber,
         email: user.email,
         role: user.role,
         createdAt: user.createdAt

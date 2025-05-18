@@ -11,6 +11,7 @@ const PORT = 4000;
 const devoteeRoutes = require('./routes/devotees');
 const eventRoutes = require('./routes/events');
 const authRoutes = require('./routes/auth');
+const otpAuthRoutes = require('./routes/otp-auth');
 const announcementRoutes = require('./routes/announcements');
 const prasadamRoutes = require('./routes/prasadam');
 const templeRoutes = require('./routes/temple');
@@ -38,6 +39,7 @@ app.get('/api/status', (req, res) => {
 app.use('/api/devotees', devoteeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/otp-auth', otpAuthRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/prasadam', prasadamRoutes);
 app.use('/api/temple', templeRoutes);
