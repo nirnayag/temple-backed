@@ -15,6 +15,7 @@ const otpAuthRoutes = require('./routes/otp-auth');
 const announcementRoutes = require('./routes/announcements');
 const prasadamRoutes = require('./routes/prasadam');
 const templeRoutes = require('./routes/temple');
+const paymentRoutes = require('./routes/payment');
 
 // Middleware
 app.use(cors());
@@ -43,6 +44,7 @@ app.use('/api/otp-auth', otpAuthRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/prasadam', prasadamRoutes);
 app.use('/api/temple', templeRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/temple')
