@@ -27,6 +27,31 @@ router.get('/upcoming', async (req, res) => {
   }
 });
 
+// Get all bookings (admin only)
+router.get('/admin/bookings', auth, adminOnly, async (req, res) => {
+  try {
+    const bookings = await PujaBooking.find()
+      .populate('pujaId')
+      .populate('devoteeId')
+      .sort({ date: 1 });
+    res.json(bookings);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get user's puja bookings (authenticated users)
+router.get('/bookings', auth, async (req, res) => {
+  try {
+    const bookings = await PujaBooking.find({ devoteeId: req.user.devoteeId })
+      .populate('pujaId')
+      .sort({ date: 1 });
+    res.json(bookings);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get puja by ID (public)
 router.get('/:id', async (req, res) => {
   try {
@@ -94,18 +119,6 @@ router.post('/book', auth, async (req, res) => {
   }
 });
 
-// Get user's puja bookings (authenticated users)
-router.get('/bookings', auth, async (req, res) => {
-  try {
-    const bookings = await PujaBooking.find({ devoteeId: req.user.devoteeId })
-      .populate('pujaId')
-      .sort({ date: 1 });
-    res.json(bookings);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
 // Cancel puja booking (authenticated users)
 router.delete('/bookings/:id', auth, async (req, res) => {
   try {
@@ -123,19 +136,6 @@ router.delete('/bookings/:id', auth, async (req, res) => {
     booking.status = 'cancelled';
     await booking.save();
     res.json({ message: 'Booking cancelled successfully' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get all bookings (admin only)
-router.get('/admin/bookings', auth, adminOnly, async (req, res) => {
-  try {
-    const bookings = await PujaBooking.find()
-      .populate('pujaId')
-      .populate('devoteeId')
-      .sort({ date: 1 });
-    res.json(bookings);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

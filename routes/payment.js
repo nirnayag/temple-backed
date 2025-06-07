@@ -1,8 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const Payment = require('../models/Payment');
-const { auth } = require('../middleware/auth');
-const adminAuth = require('../middleware/adminAuth');
+const { auth, adminOnly } = require('../middleware/auth');
+
+// Get all payments (admin only)
+router.get('/', auth, adminOnly, async (req, res) => {
+    try {
+        const payments = await Payment.find()
+            .sort({ createdAt: -1 });
+        res.json(payments);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 // Create a new payment
 router.post('/', auth, async (req, res) => {
@@ -21,22 +31,10 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// Get all payments (admin only)
-router.get('/all', adminAuth, async (req, res) => {
-    try {
-        const payments = await Payment.find()
-            .populate('userId', 'name email')
-            .sort({ createdAt: -1 });
-        res.json(payments);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
 // Get user's payments
 router.get('/my-payments', auth, async (req, res) => {
     try {
-        const payments = await Payment.find({ userId: req.user._id })
+        const payments = await Payment.find({ userId: req.user.id })
             .sort({ createdAt: -1 });
         res.json(payments);
     } catch (error) {
@@ -52,7 +50,7 @@ router.get('/:id', auth, async (req, res) => {
             return res.status(404).json({ message: 'Payment not found' });
         }
         // Check if user is admin or payment owner
-        if (!req.user.isAdmin && payment.userId.toString() !== req.user._id.toString()) {
+        if (req.user.role !== 'admin' && payment.userId.toString() !== req.user.id.toString()) {
             return res.status(403).json({ message: 'Not authorized' });
         }
         res.json(payment);
@@ -62,7 +60,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Update payment (admin only)
-router.patch('/:id', adminAuth, async (req, res) => {
+router.patch('/:id', auth, adminOnly, async (req, res) => {
     try {
         const payment = await Payment.findById(req.params.id);
         if (!payment) {
@@ -88,13 +86,13 @@ router.patch('/:id', adminAuth, async (req, res) => {
 });
 
 // Delete payment (admin only)
-router.delete('/:id', adminAuth, async (req, res) => {
+router.delete('/:id', auth, adminOnly, async (req, res) => {
     try {
         const payment = await Payment.findById(req.params.id);
         if (!payment) {
             return res.status(404).json({ message: 'Payment not found' });
         }
-        await payment.remove();
+        await payment.deleteOne();
         res.json({ message: 'Payment deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });

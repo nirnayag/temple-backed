@@ -35,9 +35,7 @@ router.get('/upcoming', async (req, res) => {
 // Get event by ID (public)
 router.get('/:id', async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id)
-      .populate('registeredDevotees', 'name email mobileNumber')
-      .populate('sponsors.devoteId', 'name email mobileNumber');
+    const event = await Event.findById(req.params.id);
       
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });

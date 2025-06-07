@@ -21,21 +21,7 @@ if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
 
 // Helper function to generate OTP
 const generateOTP = () => {
-  // Use otp-generator with digits only
-  const generatedOtp = otpGenerator.generate(6, { 
-    upperCaseAlphabets: false, 
-    lowerCaseAlphabets: false,
-    specialChars: false,
-    digits: true
-  });
-  
-  // Double check to ensure it's only digits
-  if (!/^\d{6}$/.test(generatedOtp)) {
-    // Fallback method if the generator includes non-digits for some reason
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-  
-  return generatedOtp;
+  return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 // Helper function to send OTP via SMS
@@ -81,16 +67,9 @@ router.post('/request-otp', async (req, res) => {
       user.otpExpiry = otpExpiry;
       await user.save();
     } else {
-      // Create a temporary user with OTP and temporary username/email
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substr(2, 5);
-      const tempUsername = `temp_${timestamp}_${randomStr}`;
-      const tempEmail = `temp_${timestamp}_${randomStr}@temp.com`;
-      
+      // Create a temporary user with OTP
       user = new User({
         mobileNumber,
-        username: tempUsername,
-        email: tempEmail,
         otp,
         otpExpiry
       });
@@ -118,7 +97,7 @@ router.post('/request-otp', async (req, res) => {
 // Verify OTP and login/register user
 router.post('/verify-otp', async (req, res) => {
   try {
-    const { mobileNumber, otp, userData } = req.body;
+    const { mobileNumber, otp } = req.body;
     
     if (!mobileNumber || !otp) {
       return res.status(400).json({ message: 'Mobile number and OTP are required' });
@@ -150,54 +129,10 @@ router.post('/verify-otp', async (req, res) => {
     // If user doesn't have devoteeId, it's a new user
     if (!user.devoteeId) {
       isNewUser = true;
-      
-      if (!userData) {
-        return res.status(400).json({ 
-          message: 'Additional user data required for registration',
-          requiresRegistration: true
-        });
-      }
-
-      // Generate unique username if the requested one exists
-      let username = userData.username;
-      if (username) {
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-          username = `${username}_${Date.now()}`;
-        }
-      } else {
-        username = `user_${Date.now()}`;
-      }
-
-      // Generate unique email if the requested one exists
-      let email = userData.email;
-      if (email) {
-        const existingDevotee = await Devotee.findOne({ email });
-        if (existingDevotee) {
-          const [localPart, domain] = email.split('@');
-          email = `${localPart}_${Date.now()}@${domain}`;
-        }
-      }
-      
-      // Create a devotee record
-      const devotee = new Devotee({
-        name: userData.name || 'Temple Devotee',
-        email: email,
-        mobileNumber: mobileNumber,
-        address: userData.address,
-        city: userData.city,
-        state: userData.state,
-        country: userData.country || 'India',
-        membershipType: 'regular'
+      return res.status(200).json({ 
+        message: 'Additional user data required for registration',
+        requiresRegistration: true
       });
-      
-      const savedDevotee = await devotee.save();
-      
-      // Update user with devotee reference and other details
-      user.devoteeId = savedDevotee._id;
-      user.username = username;
-      user.email = email;
-      user.role = userData.role || 'user';
     }
     
     await user.save();
@@ -210,19 +145,86 @@ router.post('/verify-otp', async (req, res) => {
     );
     
     res.status(200).json({
-      message: isNewUser ? 'Registration successful' : 'Login successful',
+      message: 'Login successful',
       token,
       user: {
         id: user._id,
         mobileNumber: user.mobileNumber,
-        username: user.username,
         email: user.email,
         role: user.role
-      },
-      isNewUser
+      }
     });
   } catch (error) {
     console.error('OTP verification error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Register new user after OTP verification
+router.post('/register', async (req, res) => {
+  try {
+    const { mobileNumber, name, email, role } = req.body;
+    
+    if (!mobileNumber || !name) {
+      return res.status(400).json({ message: 'Mobile number and name are required' });
+    }
+    
+    // Find user by mobile number
+    const user = await User.findOne({ mobileNumber });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found. Please request OTP first.' });
+    }
+    
+    if (user.devoteeId) {
+      return res.status(400).json({ message: 'User already registered' });
+    }
+    
+    // Generate unique email if the requested one exists
+    let finalEmail = email;
+    if (email) {
+      const existingDevotee = await Devotee.findOne({ email });
+      if (existingDevotee) {
+        const [localPart, domain] = email.split('@');
+        finalEmail = `${localPart}_${Date.now()}@${domain}`;
+      }
+    }
+    
+    // Create a devotee record
+    const devotee = new Devotee({
+      name,
+      email: finalEmail,
+      mobileNumber,
+      membershipType: 'regular'
+    });
+    
+    const savedDevotee = await devotee.save();
+    
+    // Update user with devotee reference and other details
+    user.devoteeId = savedDevotee._id;
+    user.email = finalEmail;
+    user.role = role || 'user';
+    await user.save();
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.status(201).json({
+      message: 'Registration successful',
+      token,
+      user: {
+        id: user._id,
+        mobileNumber: user.mobileNumber,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ message: error.message });
   }
 });

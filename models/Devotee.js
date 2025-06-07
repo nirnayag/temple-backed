@@ -18,44 +18,6 @@ const devoteeSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  address: {
-    type: String,
-    trim: true
-  },
-  city: {
-    type: String,
-    trim: true
-  },
-  state: {
-    type: String,
-    trim: true
-  },
-  zipCode: {
-    type: String,
-    trim: true
-  },
-  country: {
-    type: String,
-    default: 'USA',
-    trim: true
-  },
-  dateOfBirth: {
-    type: Date
-  },
-  maritalStatus: {
-    type: String,
-    enum: ['single', 'married', 'other'],
-    default: 'single'
-  },
-  familyMembers: [{
-    name: String,
-    relationship: String,
-    dateOfBirth: Date
-  }],
-  gotra: {
-    type: String,
-    trim: true
-  },
   memberSince: {
     type: Date,
     default: Date.now
@@ -64,29 +26,6 @@ const devoteeSchema = new mongoose.Schema({
     type: String,
     enum: ['regular', 'lifetime', 'vip', 'sponsor', 'trustee'],
     default: 'regular'
-  },
-  membershipExpiryDate: {
-    type: Date
-  },
-  preferredDeity: {
-    type: String,
-    trim: true
-  },
-  preferredLanguage: {
-    type: String,
-    trim: true
-  },
-  volunteer: {
-    type: Boolean,
-    default: false
-  },
-  volunteerInterests: [{
-    type: String,
-    enum: ['events', 'puja', 'teaching', 'cooking', 'maintenance', 'administration', 'other']
-  }],
-  profileImage: {
-    type: String,
-    trim: true
   },
   donationHistory: [{
     date: {
@@ -110,10 +49,6 @@ const devoteeSchema = new mongoose.Schema({
     },
     notes: String
   }],
-  specialRequests: {
-    type: String,
-    trim: true
-  },
   isActive: {
     type: Boolean,
     default: true

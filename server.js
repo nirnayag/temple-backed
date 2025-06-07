@@ -16,6 +16,7 @@ const announcementRoutes = require('./routes/announcements');
 const prasadamRoutes = require('./routes/prasadam');
 const templeRoutes = require('./routes/temple');
 const paymentRoutes = require('./routes/payment');
+const pujaRoutes = require('./routes/pujas');
 
 // Middleware
 app.use(cors());
@@ -45,6 +46,13 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/prasadam', prasadamRoutes);
 app.use('/api/temple', templeRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/pujas', pujaRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/temple')
