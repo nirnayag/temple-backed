@@ -21,7 +21,7 @@ if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
 
 // Helper function to generate OTP
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+    return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 // Helper function to send OTP via SMS
@@ -130,9 +130,9 @@ router.post('/verify-otp', async (req, res) => {
     if (!user.devoteeId) {
       isNewUser = true;
       return res.status(200).json({ 
-        message: 'Additional user data required for registration',
-        requiresRegistration: true
-      });
+          message: 'Additional user data required for registration',
+          requiresRegistration: true
+        });
     }
     
     await user.save();

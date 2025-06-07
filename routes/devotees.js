@@ -14,6 +14,32 @@ router.get('/', auth, adminOnly, async (req, res) => {
   }
 });
 
+// Get paginated devotees (admin only)
+router.get('/paginate', auth, adminOnly, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalDevotees = await Devotee.countDocuments();
+    const devotees = await Devotee.find()
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    res.json({
+      devotees,
+      currentPage: page,
+      totalPages: Math.ceil(totalDevotees / limit),
+      totalDevotees,
+      hasNextPage: skip + limit < totalDevotees,
+      hasPreviousPage: page > 1
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get devotee by ID (user can access their own, admin can access any)
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -56,7 +82,7 @@ router.patch('/:id', auth, async (req, res) => {
       }
       
       // Regular users can only update certain fields
-      const allowedUpdates = ['phone', 'address'];
+      const allowedUpdates = ['phone'];
       const updates = Object.keys(req.body);
       const isValidOperation = updates.every(update => allowedUpdates.includes(update));
       
