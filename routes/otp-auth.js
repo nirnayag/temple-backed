@@ -106,7 +106,8 @@ router.post('/request-otp', async (req, res) => {
     
     res.status(200).json({ 
       message: 'OTP sent successfully',
-      userExists: user.devoteeId ? true : false
+      userExists: user.devoteeId ? true : false,
+      otp: otp // Including OTP in response for development
     });
   } catch (error) {
     console.error('OTP request error:', error);
@@ -156,11 +157,32 @@ router.post('/verify-otp', async (req, res) => {
           requiresRegistration: true
         });
       }
+
+      // Generate unique username if the requested one exists
+      let username = userData.username;
+      if (username) {
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+          username = `${username}_${Date.now()}`;
+        }
+      } else {
+        username = `user_${Date.now()}`;
+      }
+
+      // Generate unique email if the requested one exists
+      let email = userData.email;
+      if (email) {
+        const existingDevotee = await Devotee.findOne({ email });
+        if (existingDevotee) {
+          const [localPart, domain] = email.split('@');
+          email = `${localPart}_${Date.now()}@${domain}`;
+        }
+      }
       
       // Create a devotee record
       const devotee = new Devotee({
         name: userData.name || 'Temple Devotee',
-        email: userData.email,
+        email: email,
         mobileNumber: mobileNumber,
         address: userData.address,
         city: userData.city,
@@ -173,9 +195,9 @@ router.post('/verify-otp', async (req, res) => {
       
       // Update user with devotee reference and other details
       user.devoteeId = savedDevotee._id;
-      user.username = userData.username || `user_${Math.floor(Math.random() * 10000)}`;
-      user.email = userData.email;
-      user.role = 'user';
+      user.username = username;
+      user.email = email;
+      user.role = userData.role || 'user';
     }
     
     await user.save();

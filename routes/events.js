@@ -3,28 +3,10 @@ const router = express.Router();
 const Event = require('../models/Event');
 const { auth, adminOnly, userOrAdmin } = require('../middleware/auth');
 
-// Get upcoming events (public)
-router.get('/upcoming', async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const upcomingEvents = await Event.find({
-      date: { $gte: today }
-    }).sort({ date: 1 });
-    
-    // Simply return what we found, even if empty
-    res.json(upcomingEvents);
-  } catch (err) {
-    console.error('Error fetching upcoming events:', err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
 // Get all events (public)
 router.get('/', async (req, res) => {
   try {
-    const events = await Event.find();
+    const events = await Event.find().sort({ date: 1 });
     res.json(events);
   } catch (err) {
     console.error('Error fetching all events:', err);
@@ -32,11 +14,34 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get upcoming events (public)
+router.get('/upcoming', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const upcomingEvents = await Event.find({
+      date: { $gte: today },
+      isActive: true
+    }).sort({ date: 1 });
+    
+    res.json(upcomingEvents);
+  } catch (err) {
+    console.error('Error fetching upcoming events:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get event by ID (public)
 router.get('/:id', async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id).populate('registeredDevotees', 'name email phone');
-    if (!event) return res.status(404).json({ message: 'Event not found' });
+    const event = await Event.findById(req.params.id)
+      .populate('registeredDevotees', 'name email mobileNumber')
+      .populate('sponsors.devoteId', 'name email mobileNumber');
+      
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
     res.json(event);
   } catch (err) {
     console.error('Error fetching event by ID:', err);
@@ -46,8 +51,8 @@ router.get('/:id', async (req, res) => {
 
 // Create event (admin only)
 router.post('/', auth, adminOnly, async (req, res) => {
-  const event = new Event(req.body);
   try {
+    const event = new Event(req.body);
     const newEvent = await event.save();
     res.status(201).json(newEvent);
   } catch (err) {
@@ -64,7 +69,11 @@ router.patch('/:id', auth, adminOnly, async (req, res) => {
       req.body,
       { new: true, runValidators: true }
     );
-    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
     res.json(event);
   } catch (err) {
     console.error('Error updating event:', err);
@@ -76,49 +85,54 @@ router.patch('/:id', auth, adminOnly, async (req, res) => {
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
     const event = await Event.findByIdAndDelete(req.params.id);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-    res.json({ message: 'Event deleted' });
+    
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
+    res.json({ message: 'Event deleted successfully' });
   } catch (err) {
     console.error('Error deleting event:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
-// Register devotee for event (user or admin)
-router.post('/:id/register/:devoteeId', auth, userOrAdmin, async (req, res) => {
+// Register for event (user or admin)
+router.post('/:id/register', auth, userOrAdmin, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
     
-    // Check if devotee already registered
-    if (event.registeredDevotees.includes(req.params.devoteeId)) {
-      return res.status(400).json({ message: 'Devotee already registered for this event' });
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
     }
     
-    event.registeredDevotees.push(req.params.devoteeId);
+    // Check if registration is required
+    if (!event.registrationRequired) {
+      return res.status(400).json({ message: 'Registration is not required for this event' });
+    }
+    
+    // Check if event is full
+    if (event.maxAttendees && event.registeredDevotees.length >= event.maxAttendees) {
+      return res.status(400).json({ message: 'Event is full' });
+    }
+    
+    // Check if user is already registered
+    if (event.registeredDevotees.includes(req.user.id)) {
+      return res.status(400).json({ message: 'You are already registered for this event' });
+    }
+    
+    // Add user to registered devotees
+    event.registeredDevotees.push(req.user.id);
     await event.save();
     
-    res.status(200).json(event);
+    // Return updated event with populated fields
+    const updatedEvent = await Event.findById(req.params.id)
+      .populate('registeredDevotees', 'name email mobileNumber')
+      .populate('sponsors.devoteId', 'name email mobileNumber');
+    
+    res.json(updatedEvent);
   } catch (err) {
     console.error('Error registering for event:', err);
-    res.status(400).json({ message: err.message });
-  }
-});
-
-// Unregister devotee from event (user or admin)
-router.delete('/:id/register/:devoteeId', auth, userOrAdmin, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-    
-    event.registeredDevotees = event.registeredDevotees.filter(
-      devotee => devotee.toString() !== req.params.devoteeId
-    );
-    
-    await event.save();
-    res.status(200).json(event);
-  } catch (err) {
-    console.error('Error unregistering from event:', err);
     res.status(400).json({ message: err.message });
   }
 });
