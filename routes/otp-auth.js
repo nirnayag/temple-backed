@@ -81,9 +81,16 @@ router.post('/request-otp', async (req, res) => {
       user.otpExpiry = otpExpiry;
       await user.save();
     } else {
-      // Create a temporary user with OTP
+      // Create a temporary user with OTP and temporary username/email
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substr(2, 5);
+      const tempUsername = `temp_${timestamp}_${randomStr}`;
+      const tempEmail = `temp_${timestamp}_${randomStr}@temp.com`;
+      
       user = new User({
         mobileNumber,
+        username: tempUsername,
+        email: tempEmail,
         otp,
         otpExpiry
       });
